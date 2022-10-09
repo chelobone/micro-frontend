@@ -1,45 +1,187 @@
-# Getting Started with Create React App
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+# Aplicación contenedora de microfrontend
 
-## Available Scripts
+## Este proyecto se creó usando [Create React App](https://github.com/facebook/create-react-app).
 
-In the project directory, you can run:
+El comando para crear este proyecto es el siguiente:
+```
+npx create-react-app micro-frontend --template typescript
+```
+El proyecto se crea con formato typescript
+Se deben instalar los siguientes componentes:
+```
+npm install html-webpack-plugin serve ts-loader webpack webpack-cli webpack-dev-server @chakra-ui/react @emotion/react@^11 @emotion/styled@^11 framer-motion@^5
+```
+o
 
-### `npm start`
+```
+npm i
+```
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+Esto instará las dependencias respecto al archivo `package.json`
+Dentro de este proyecto podemos ver la implementación de como invocar disintos microfrontends dentro una aplicación
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+### Creación o modificación de archivos
 
-### `npm test`
+La estructura de carpetas y los archivos que se deben <span style="color:green">crear</span> o <span style="color:yellow">modificar</span> son los siguientes:
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+* public
+  * <span style="color:yellow">index.html</span>
+* src
+  * <span style="color:green">bootstrap.tsx</span>
+  * <span style="color:yellow">~~index.tsx~~ -> indext.ts</span>
+  * <span style="color:green">components</span>
+    * <span style="color:green">HomeAppMicro2.tsx</span>
+  * <span style="color:yellow">App.tsx</span>
+* <span style="color:yellow">package.json</span>
+* <span style="color:yellow">tsconfig.json</span>
+* <span style="color:green">webpack.config.js</span>
 
-### `npm run build`
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### 1. Crear src/bootstrap.tsx
+```javascript
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import reportWebVitals from './reportWebVitals';
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+const root = ReactDOM.createRoot(
+  document.getElementById('root') as HTMLElement
+);
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+reportWebVitals();
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```
+### 2. Modificar src/App.tsx
 
-### `npm run eject`
+```javascript
+import { Box } from '@chakra-ui/react';
+import React from 'react';
+import CounterAppOne from './components/HomeAppMicro2';
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+const App = () => (
+  <Box margin="1.2rem">
+    <Box>APP-1</Box>
+    <Box>
+      <CounterAppOne />
+    </Box>
+  </Box>
+);
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+export default App;
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+```
+### 3. Modificar index.tsx a index.ts
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+Agregar el siguiente contenido:
+```javascript
+import('./bootstrap');
+export {};
+```
 
-## Learn More
+### 4. Crear webpack.config.js
+```javascript
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const { ModuleFederationPlugin } = require('webpack').container;
+const path = require('path');
+const deps = require('./package.json').dependencies;
+
+module.exports = {
+  entry: './src/index.ts',
+  mode: 'development',
+  devServer: {
+    port: 3001,
+    open: true,
+  },
+  resolve: {
+    extensions: ['.ts', '.tsx', '.js'],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.(js|jsx|tsx|ts)$/,
+        loader: 'ts-loader',
+        exclude: /node_modules/,
+      },
+    ],
+  },
+  plugins: [
+    new ModuleFederationPlugin({
+      name: 'app1',
+      filename: 'remoteEntry.js',
+      exposes: {
+        // expose each component
+        './CounterAppOne': './src/components/HomeAppMicro2',
+      },
+      shared: {
+        ...deps,
+        react: { singleton: true, eager: true, requiredVersion: deps.react },
+        'react-dom': {
+          singleton: true,
+          eager: true,
+          requiredVersion: deps['react-dom'],
+        },
+      },
+    }),
+    new HtmlWebpackPlugin({
+      template: './public/index.html',
+    }),
+  ],
+};
+```
+### 5. Modificar package.json (sección `scripts`)
+
+```json
+"scripts": {
+    "start": "webpack serve --open",
+    "build": "webpack --config webpack.prod.js",
+    "serve": "serve dist -p 3001",
+    "clean": "rm -rf dist"
+}
+```
+
+### 6. Actualizar tsconfig.json
+```json
+{
+  "compilerOptions": {
+    "target": "es5",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "baseUrl": "./",
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": false,
+    "jsx": "react-jsx"
+  },
+  "include": ["src"]
+}
+```
+
+### 9. Modificar `index.html`
+
+```html
+<html>
+  <head>
+    <title>APP-1</title>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
+```
+## Learn more
 
 You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
 

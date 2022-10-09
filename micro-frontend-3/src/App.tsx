@@ -1,12 +1,12 @@
 import { Box } from '@chakra-ui/react';
 import React from 'react';
-import CounterAppOne from './components/HomeAppMicro3';
+import CounterAppTwo from './components/HomeAppMicro3';
 
 const App = () => (
   <Box margin="1.2rem">
-    <Box>APP-1</Box>
+    <Box>APP-2</Box>
     <Box>
-      <CounterAppOne />
+      <CounterAppTwo />
     </Box>
   </Box>
 );
